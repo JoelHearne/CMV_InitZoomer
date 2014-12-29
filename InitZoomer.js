@@ -1,10 +1,19 @@
 define([
     'dojo/_base/declare',
+    'dojo/_base/json',
+    'dojo/topic',
+    //'dojo/parser',
+    'dojo/dom',
+    'dojo/dom-attr',
+    'dojo/dom-construct',
     'dijit/_WidgetBase',
     'dojo/_base/lang',
     'dojo/_base/array',
     'dojo/_base/Color',
     'dojox/lang/functional',
+    "dojo/query",
+    //'dijit/registry',
+    "dojo/ready",
 	'esri/layers/GraphicsLayer',
 	'esri/graphic',
 	'esri/renderers/SimpleRenderer',
@@ -17,13 +26,19 @@ define([
 	'esri/geometry/Extent',
 	'esri/tasks/IdentifyTask',
 	'esri/tasks/IdentifyParameters',
-	'esri/InfoTemplate'
-], function ( declare, _WidgetBase, lang,array,Color, functional,GraphicsLayer, Graphic, SimpleRenderer, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, graphicsUtils, FindTask, FindParameters, Extent,IdentifyTask, IdentifyParameters,InfoTemplate) {
+	'esri/InfoTemplate',
+	'esri/SpatialReference'
+	//,"dojo/domReady!"
+], function ( declare, dojo,topic
+//,parser
+,dom,domAttr, domConst,_WidgetBase, lang,array,Color, functional,query
+//,registry
+,ready,GraphicsLayer, Graphic, SimpleRenderer, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, graphicsUtils, FindTask, FindParameters, Extent,IdentifyTask, IdentifyParameters,InfoTemplate,SpatialReference) {
 		return declare([_WidgetBase], {
-
 
         postCreate: function () {
             this.inherited(arguments);
+
         } ,
         startup: function () {
 			 this.inherited(arguments);
@@ -49,12 +64,48 @@ define([
 					var findTask = new FindTask("http://gisvm101:6080/arcgis/rest/services/IGIS/MapServer");
                     findTask.execute(findParams,lang.hitch(this, 'findRes') );
 			 }
+
+
+		    if (qo.layers) {  // mod TOC state to reflect
+
+		      var layerqs=decodeURIComponent(qo.layers);
+              var mlyrs = dojo.fromJson(layerqs);
+			  // set map visible layers accordingly
+              var mscntr=0;
+			  array.forEach(this.map.layerIds, lang.hitch(this, function(id) {
+				  var mapService = this.map.getLayer(id);
+				  /*
+				  array.forEach(mapService.layerInfos, lang.hitch(this, function(li) {
+						//console.log("   --------Layer Info ------------- "  );
+						//console.log(li);
+				 }));
+				 */
+
+				  if (!mapService.hasOwnProperty('_basemapGalleryLayerType')) {
+						  //mapService.setVisibility(true);
+						  //mapService.setOpacity(0.5);
+						   if (mapService.declaredClass === 'esri.layers.ArcGISDynamicMapServiceLayer') {
+                               mapService.setVisibleLayers(mlyrs[mscntr]);
+						       mscntr++;
+						   }
+				  }
+			  }));
+		    }
+
+
+		    if (qo.extent) {  // zoom to
+		      var extqs=decodeURIComponent(qo.extent);
+              var extarr=extqs.split(',');
+              var extnt = new Extent(parseFloat(extarr[0]),parseFloat(extarr[1]),parseFloat(extarr[2]),parseFloat(extarr[3]), this.map.spatialReference);
+              this.map.setExtent(extnt);
+		    }
+
         },
         identifyResult: function(results){
 			 console.log("identifyResult");
 			 //this.map.infoWindow.setContent('<div class="loading"></div>');
-		},
- 		findRes:function(results) {
+		}
+ 		,findRes:function(results) {
 
             var zoomExtent = null;
 
